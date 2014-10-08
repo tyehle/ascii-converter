@@ -7,7 +7,7 @@ import javax.imageio.ImageIO
 import javax.swing._
 
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.{mutable, immutable}
+import scala.collection.{immutable, mutable}
 
 /**
  *
@@ -98,6 +98,11 @@ object AsciiDriver {
     }
   }
 
+  /**
+   * Builds a mapping from the number of colored pixels to a character. In the case of a tie the character with the
+   * highest spread is used.
+   * @return The character mapping
+   */
   def buildBrightnessTable:Map[Int, Char] = {
     val h = 12
     val w = (h * 5) / 9
@@ -149,8 +154,24 @@ object AsciiDriver {
     output
   }
 
+  /**
+   * Performs a binary operation, element-wise, on a tuple of two identical things.
+   * equivalent to ((a._1 op b._1), (a._2 op b._2))
+   * @param a The first tuple
+   * @param b The second tuple
+   * @param op The operator
+   * @tparam T The type of things in the tuples
+   * @return A tuple with the result of the operation
+   */
   def tuple2Op[T](a:(T,T), b:(T,T), op:(T,T) => T):(T,T) = (op(a._1, b._1), op(a._2, b._2))
 
+  /**
+   * Gets a list of locations in the given image that match the given color. This is used to find where a character
+   * is drawn onto some background image.
+   * @param image The image to test
+   * @param color The color to look for
+   * @return The locations of all instances of the given color in the given image
+   */
   def whereMatch(image:BufferedImage, color:Int):immutable.List[(Int, Int)] = {
     val pixelBytes = image.getRaster.getDataBuffer.asInstanceOf[DataBufferInt].getData
     val width = image.getWidth
@@ -170,6 +191,19 @@ object AsciiDriver {
     locations
   }
 
+  /**
+   * Saves the given image as ascii. If charWidth is not a multiple of binWidth
+   * there may be some stretching due to the requirement that all bins have the
+   * same number of pixels.
+   *
+   * @param image The image to convert
+   * @param binWidth The width of a single character on the input image, in pixels
+   * @param charWidth The width of a character
+   * @param charHeight The height of a character
+   * @param charBase The ratio of the height of a character that the baseline appears
+   * @param charMap The mapping of colors to characters
+   * @param fileName The name of the output file (should end with .png)
+   */
   def saveAsciiImage(image:BufferedImage, binWidth:Int, charWidth:Int, charHeight:Int, charBase:Double,
                      charMap:Map[Int,Char], fileName:String) =
   {
@@ -189,25 +223,7 @@ object AsciiDriver {
     println("\tChars * Size: " + (charsWide * charWidth) + " " + (charsTall * charHeight))
     println("\tAspect Change: " + ((charsWide * charWidth) / (charsTall * charHeight).asInstanceOf[Double]) + " -> " + (image.getWidth / image.getHeight.asInstanceOf[Double]))
 
-    // build a list of normalized darknesses
-    var maxDarkness = -1
-    var charVals = new ArrayBuffer[Double](charsWide * charsTall)
-    for (i <- 0 until charsWide*charsTall) {
-      val x = i % charsWide
-      val y = i / charsWide
-
-//      println(i + " -> (" + x + ", " + y + ") -> [ (" + (x*binWidth) + ", " + (y*binHeight) + "), (" + ((x+1)*binWidth) + ", " + ((y+1)*binHeight) + ") ]")
-      val pixels = normalImage.getRGB(x*binWidth, y*binHeight, binWidth, binHeight, null, 0, binWidth).map(bwColor => 0xFF - (bwColor & 0xFF))
-
-
-      val max = pixels.max
-      if(max > maxDarkness)
-        maxDarkness = max
-
-      charVals += pixels.sum / pixels.length.asInstanceOf[Double]
-    }
-    val maxKey = charMap.keys.max
-    charVals = charVals.map(x => x / maxDarkness * maxKey)
+    val charVals = getBinValues(normalImage, charsWide, charsTall, binWidth, binHeight, charMap)
 
     println("\tBuilding output image")
 
@@ -231,15 +247,11 @@ object AsciiDriver {
       val char = getClosestChar(charVals(i), charMap)
 
       // draw the character at the right spot
-//      println("(" + x + ", " + y + ") -> (" + (x*charWidth) + ", " + (y*charHeight + yOffset) + ")")
       g.drawString(char.toString, x*charWidth, y*charHeight + yOffset)
 
       outs += char
-//      printf(char.toString)
-      if(x == charsWide - 1) {
+      if(x == charsWide - 1)
         outs += '\n'
-//        printf("\n")
-      }
     }
 
     println("\tSaving text")
@@ -254,6 +266,46 @@ object AsciiDriver {
     savePng(out, fileName)
   }
 
+  /**
+   * Gets a normalized greyscale value for each bin. The values are all
+   * normalized to the maximum value appearing in the given character mapping.
+   *
+   * @param normalImage The image to inspect
+   * @param charsWide The number of bins in a row
+   * @param charsTall The number of bins in a column
+   * @param binWidth The width of a single bin
+   * @param binHeight The height of a single bin
+   * @param charMap The map from greyscale values to characters
+   * @return A list of normalized values
+   */
+  def getBinValues(normalImage:BufferedImage, charsWide:Int, charsTall:Int, binWidth:Int, binHeight:Int, charMap:Map[Int,Char]):mutable.ArrayBuffer[Double] = {
+    // build a list of normalized darknesses
+    var maxDarkness = -1.0
+    var charVals = new ArrayBuffer[Double](charsWide * charsTall)
+    for (i <- 0 until charsWide*charsTall) {
+      val x = i % charsWide
+      val y = i / charsWide
+
+      val pixels = normalImage.getRGB(x*binWidth, y*binHeight, binWidth, binHeight, null, 0, binWidth).map(bwColor => 0xFF - (bwColor & 0xFF))
+
+      val avg = pixels.sum / pixels.length.asInstanceOf[Double]
+
+      if(avg > maxDarkness)
+        maxDarkness = avg
+
+      charVals += avg
+    }
+    val maxKey = charMap.keys.max
+    charVals = charVals.map(x => x / maxDarkness * maxKey)
+    charVals
+  }
+
+  /**
+   * Saves the given image as a png with the given filename. The filename should end with .png
+   * If there is an error writing the file an error message is printed to the console.
+   * @param image The image to save
+   * @param name The name of the output file
+   */
   def savePng(image:BufferedImage, name:String) = {
     try {
       if(!ImageIO.write(image, "png", new File(name)))
@@ -264,9 +316,16 @@ object AsciiDriver {
     }
   }
 
+  /**
+   * Gets the closest char in the given char mapping.
+   * @param darkness The requested darkness
+   * @param charMap A mapping of darknesses to characters
+   * @return The closest available character to darkness
+   */
   def getClosestChar(darkness:Double, charMap:Map[Int,Char]):Char = {
     val target = darkness.round.asInstanceOf[Int]
     for(offset <- 0 to 255) {
+      // TODO: fix the ordering here
       getOffsetChar(target, offset, charMap) match {
         case Some(c) => return c
         case None =>
@@ -286,10 +345,10 @@ object AsciiDriver {
   }
 
   /**
-   * Scales a BufferedImage by the factor given.  A factor of 1 will do
-   * nothing, and a factor of 2 will return an image twice the size.
+   * Scales a BufferedImage to the given size.
    * @param in The image to scale.
-   * @param factor The factor to scale the image by
+   * @param width The width of the resulting image
+   * @param height The height of the resulting image
    * @return The scaled image
    */
   def scaleImage(in:BufferedImage, width:Int, height:Int):BufferedImage = {
@@ -301,6 +360,11 @@ object AsciiDriver {
     out
   }
 
+  /**
+   * Transforms an image to greyscale.
+   * @param in The image to transform
+   * @return The greyscale version of the given image
+   */
   def bwImage(in:BufferedImage):BufferedImage = {
     val out = new BufferedImage(in.getWidth, in.getHeight, BufferedImage.TYPE_BYTE_GRAY)
     val g = out.createGraphics()
