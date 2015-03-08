@@ -25,7 +25,7 @@ object AsciiDriver {
     println("Building a char map")
     val charBrightness = buildBrightnessTable
     println("Converting the image")
-    val height = 12
+    val height = 4
     val width = height * 5 / 9
     saveAsciiImage(inputImage, width, width, height, 13.0/16.0, charBrightness, "output.png")
     println("Done")
@@ -227,6 +227,32 @@ object AsciiDriver {
 
     println("\tBuilding output image")
 
+    val outs = new StringBuilder
+    for(i <- 0 until charsWide*charsTall) {
+      outs += getClosestChar(charVals(i), charMap)
+      if(i%charsWide == charsWide - 1)
+        outs += '\n'
+    }
+
+    println("\tSaving image")
+    savePng(convertToImage(outs.toString(), charWidth, charHeight, charBase), fileName)
+
+    println("\tSaving full res image")
+    savePng(convertToImage(outs.toString(), 7, 12, charBase), "full_res.png")
+
+    println("\tSaving text")
+//    println(outs.toString())
+    val textFile = new PrintWriter(new File("output.txt"))
+    textFile.write(outs.toString())
+    textFile.close()
+  }
+
+  def convertToImage(text: String, charWidth: Int, charHeight: Int, charBase: Double) = {
+    val lines = text.split('\n')
+
+    val charsWide = lines(0).length
+    val charsTall = lines.length
+
     // make the output image to draw on
     val out = new BufferedImage(charsWide*charWidth, charsTall*charHeight, BufferedImage.TYPE_INT_ARGB)
     val g = out.createGraphics()
@@ -240,30 +266,15 @@ object AsciiDriver {
 
     val yOffset = (charHeight * charBase).asInstanceOf[Int]
 
-    for (i <- 0 until charsWide*charsTall) {
-      val x = i % charsWide
-      val y = i / charsWide
+    for(y <- 0 until charsTall)
+      for(x <- 0 until charsWide) {
+        val char = lines(y).charAt(x)
 
-      val char = getClosestChar(charVals(i), charMap)
-
-      // draw the character at the right spot
-      g.drawString(char.toString, x*charWidth, y*charHeight + yOffset)
-
-      outs += char
-      if(x == charsWide - 1)
-        outs += '\n'
+        // draw the character at the right spot
+        g.drawString(char.toString, x*charWidth, y*charHeight + yOffset)
     }
 
-    println("\tSaving text")
-//    println(outs.toString())
-    val textFile = new PrintWriter(new File("output.txt"))
-    textFile.write(outs.toString())
-    textFile.close()
-
-    println("\tSaving image")
-
-    // save the image
-    savePng(out, fileName)
+    out
   }
 
   /**
