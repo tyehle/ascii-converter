@@ -6,6 +6,7 @@ import java.util.NoSuchElementException
 import javax.imageio.ImageIO
 import javax.swing._
 
+import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.{immutable, mutable}
 
@@ -17,7 +18,7 @@ object AsciiDriver {
   def main(args: Array[String]):Unit = {
     // grab an image from the user
     setBestLAF()
-    val inputImage = getImage
+    val inputImage = loadImage()
     if(inputImage == null) {
       System.exit(0)
     }
@@ -46,22 +47,14 @@ object AsciiDriver {
 
       // Check whether we have an ugly L&F
       val laf = UIManager.getLookAndFeel
-      if (laf == null || laf.getName.matches(".*[mM][oO][tT][iI][fF].*") ||
-        laf.getName.matches(".*[mM][eE][tT][aA][lL].*")) {
+      if (laf == null || laf.getName.matches("(?i).*(motif|metal).*")) {
 
         // Search for better LAF
-        val info = UIManager.getInstalledLookAndFeels
+        val lafNames = "(?i).*(gtk|win|mac|aqua|nimb).*"
 
-        val lafNames = Array(".*[gG][tT][kK].*", ".*[wW][iI][nN].*", ".*[mM][aA][cC].*",
-          ".*[aA][qQ][uU][aA].*", ".*[nN][iI][mM][bB].*")
-
-        for (lafName <- lafNames) {
-          for (l <- info) {
-            if (l.getName.matches(lafName)) {
-              UIManager.setLookAndFeel(l.getClassName)
-              return
-            }
-          }
+        UIManager.getInstalledLookAndFeels.find(_.getName.matches(lafNames)) match {
+          case Some(foundLAF) => UIManager.setLookAndFeel(foundLAF.getClassName)
+          case None =>
         }
       }
     }
@@ -78,7 +71,7 @@ object AsciiDriver {
    * user presses cancel then this will return null.
    * @return The image, or null if the user pressed cancel
    */
-  def getImage:BufferedImage = {
+  @tailrec def loadImage():BufferedImage = {
     val chooser = new FileDialog(null:Frame, "Open Image", FileDialog.LOAD)
     chooser.setVisible(true)
     // The user pressed cancel
@@ -94,7 +87,7 @@ object AsciiDriver {
     catch {
       case ioe: IOException =>
         JOptionPane.showMessageDialog(null, "Error reading image.  Choose a valid image.", "Image", JOptionPane.ERROR_MESSAGE)
-        getImage
+        loadImage()
     }
   }
 
