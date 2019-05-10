@@ -2,6 +2,7 @@ import java.awt.geom.AffineTransform
 import java.awt.image.{BufferedImage, DataBufferInt}
 import java.awt._
 import java.io.{File, IOException, PrintWriter}
+import java.nio.file.{Files, Paths}
 import java.util.NoSuchElementException
 
 import javax.imageio.ImageIO
@@ -199,7 +200,7 @@ object AsciiDriver {
    * @param fileName The name of the output file (should end with .png)
    */
   def saveAsciiImage(image:BufferedImage, binWidth:Int, charWidth:Int, charHeight:Int, charBase:Double,
-                     charMap:Map[Int,Char], fileName:String) =
+                     charMap:Map[Int,Char], fileName:String, outputPath:String = "out/"): Unit =
   {
     // scale the image so the bins work out
     val binHeight = binWidth * charHeight / charWidth
@@ -208,7 +209,7 @@ object AsciiDriver {
     val bw = bwImage(image)
     val normalImage = scaleImage(bw, charsWide * binWidth, charsTall * binHeight)
 
-    savePng(normalImage, "normal.png")
+    savePng(normalImage, outputPath, "normal.png")
 
     println("\tNormalized: " + normalImage.getWidth + " " + normalImage.getHeight)
     println("\tChar Size: " + charWidth + " " + charHeight)
@@ -229,19 +230,19 @@ object AsciiDriver {
     }
 
     println("\tSaving image")
-    savePng(convertToImage(outs.toString(), charWidth, charHeight, charBase), fileName)
+    savePng(convertToImage(outs.toString(), charWidth, charHeight, charBase), outputPath, fileName)
 
     println("\tSaving full res image")
-    savePng(convertToImage(outs.toString(), 7, 12, charBase), "full_res.png")
+    savePng(convertToImage(outs.toString(), 7, 12, charBase), outputPath, "full_res.png")
 
     println("\tSaving text")
 //    println(outs.toString())
-    val textFile = new PrintWriter(new File("output.txt"))
+    val textFile = new PrintWriter(prepareOutputFile(outputPath, "output.txt"))
     textFile.write(outs.toString())
     textFile.close()
   }
 
-  def convertToImage(text: String, charWidth: Int, charHeight: Int, charBase: Double) = {
+  def convertToImage(text: String, charWidth: Int, charHeight: Int, charBase: Double): BufferedImage = {
     val lines = text.split('\n')
 
     val charsWide = lines(0).length
@@ -306,14 +307,27 @@ object AsciiDriver {
   }
 
   /**
+    * Build a proper output file and create directories if needed
+    * @param path The path to the file
+    * @param name The name of the file
+    * @return The output file
+    */
+  def prepareOutputFile(path: String, name: String): File = {
+    val fullPath = Paths.get(path, name)
+    if(fullPath.getParent != null) Files.createDirectories(fullPath.getParent)
+    fullPath.toFile
+  }
+
+  /**
    * Saves the given image as a png with the given filename. The filename should end with .png
    * If there is an error writing the file an error message is printed to the console.
    * @param image The image to save
+   * @param path The path of the output file
    * @param name The name of the output file
    */
-  def savePng(image:BufferedImage, name:String) = {
+  def savePng(image:BufferedImage, path: String, name:String): Unit = {
     try {
-      if(!ImageIO.write(image, "png", new File(name)))
+      if(!ImageIO.write(image, "png", prepareOutputFile(path, name)))
         println("No Writer Found!")
     } catch {
       case ioe:IOException => println(ioe)
@@ -382,7 +396,7 @@ object AsciiDriver {
    * Sets rendering hints for the given graphics to high quality.
    * @param g The graphics object to set the hints
    */
-  def setHighRenderingHints(g:Graphics2D) = {
+  def setHighRenderingHints(g:Graphics2D): Unit = {
     g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
     g.setRenderingHint(RenderingHints.KEY_COLOR_RENDERING, RenderingHints.VALUE_COLOR_RENDER_QUALITY)
     g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC)
