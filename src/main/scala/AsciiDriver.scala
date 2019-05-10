@@ -11,6 +11,7 @@ import javax.swing.{JOptionPane, UIManager}
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.{immutable, mutable}
+import scala.util.Try
 
 /**
  *
@@ -25,10 +26,14 @@ object AsciiDriver {
       System.exit(0)
     }
 
+    val defaultHeight = 10
+    val height = Option(JOptionPane.showInputDialog("Bin height", defaultHeight)).flatMap {
+      raw => Try(raw.toInt).toOption
+    }.getOrElse(defaultHeight)
+
     println("Building a char map")
     val charBrightness = buildBrightnessTable
     println("Converting the image")
-    val height = 4
     val width = height * 5 / 9
     saveAsciiImage(inputImage, width, width, height, 13.0/16.0, charBrightness, "output.png")
     println("Done")
