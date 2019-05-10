@@ -87,7 +87,7 @@ object AsciiDriver {
       ImageIO.read(f)
     }
     catch {
-      case ioe: IOException =>
+      case _:IOException =>
         JOptionPane.showMessageDialog(null, "Error reading image.  Choose a valid image.", "Image", JOptionPane.ERROR_MESSAGE)
         loadImage()
     }
@@ -256,9 +256,6 @@ object AsciiDriver {
     g.setColor(Color.BLACK)
     g.setFont(new Font("Monospaced", Font.PLAIN, charHeight))
 
-    // make an output string
-    val outs = new StringBuilder
-
     val yOffset = (charHeight * charBase).asInstanceOf[Int]
 
     for(y <- 0 until charsTall)
@@ -356,9 +353,9 @@ object AsciiDriver {
   def getOffsetChar(darkness:Int, offset:Int, charMap:Map[Int,Char]):Option[Char] = {
     try { Some(charMap(darkness + offset)) }
     catch {
-      case nsee: NoSuchElementException => try { Some(charMap(darkness - offset)) }
+      case _:NoSuchElementException => try { Some(charMap(darkness - offset)) }
         catch {
-          case nsee: NoSuchElementException => None
+          case _:NoSuchElementException => None
         }
     }
   }
