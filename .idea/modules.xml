@@ -2,7 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/ascii-converter.iml" filepath="$PROJECT_DIR$/ascii-converter.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/ascii-converter.iml" filepath="$PROJECT_DIR$/.idea/modules/ascii-converter.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/ascii-converter-build.iml" filepath="$PROJECT_DIR$/.idea/modules/ascii-converter-build.iml" />
     </modules>
   </component>
 </project>
